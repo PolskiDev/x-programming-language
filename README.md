@@ -14,8 +14,8 @@ A linguagem de programação X foi desenvolvida para propósitos educacionais e 
 - PKG ([Módulo NPM](https://www.npmjs.com/package/pkg))
 #### Compilar a partir dos fontes para binários XCC e XPM
 ```
-    $> unzip *.zip
-    $> cd zip/src
+    $> unzip x-programming-language.zip
+    $> cd x-programming-language/src
     $> make
 
     $> ./xcc -version
@@ -23,8 +23,8 @@ A linguagem de programação X foi desenvolvida para propósitos educacionais e 
 ```
 #### Interpretar XCC e XPM
 ```
-    $> unzip *.zip
-    $> cd zip
+    $> unzip x-programming-language.zip
+    $> cd x-programming-language
     $> sudo chmod +X xcc.sh xpm.sh
 
     $> ./xcc.sh -version
