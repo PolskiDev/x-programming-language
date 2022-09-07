@@ -1,0 +1,3 @@
+# GLOBAL STRINGS DECLARATION
+var msg := "Hello world"
+

@@ -1,0 +1,11 @@
+@use_node
+
+begin
+    import "fs" as fs
+    def main() : none then
+        @extern Main
+        puts msg
+        
+    end
+
+end.
