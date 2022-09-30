@@ -2,10 +2,36 @@
 
 begin
     import "fs" as fs
-    def main() : none then
-        @extern Main
-        puts msg
-        
+    
+    def say(a:string,b:integer) : string then
+        var beta: string = "Hello "
+        var delta: string = "world"
+        var gama: string = beta+delta
+        return gama
     end
 
-end.
+    def boiler(): none then
+        puts "Hello world"
+    end
+
+    def main() : none then
+        var msg: string = "Hello World"
+        puts msg
+
+        call say("Joao Marcelo",145) : string word
+        puts word
+        
+        array numbers: integer = [0,1,4,5]
+        puts numbers at 2
+
+        var numeros: integer = numbers at 3
+
+        for i in 1..10 then
+            puts "Contou mais um"
+        end
+
+        call boiler() : none
+    end
+
+
+exit

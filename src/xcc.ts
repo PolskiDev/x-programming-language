@@ -2,7 +2,6 @@ import * as fs from 'fs';
 import { stdout } from 'process';
 import { exec } from 'child_process';
 import * as tok from './lex';
-import * as ext from './extern';
 import * as os from './os';
 
 
@@ -19,7 +18,6 @@ if (process.argv[2]) { procmode = process.argv[2]; }
 if (process.argv[3]) {
     inputfile = process.argv[3]
     asm = process.argv[3].slice(0,process.argv[3].search(/\./))+tok.OBJECT_FILE; //HERE
-    segment = process.argv[3].slice(0,process.argv[3].search(/\./))+tok.EXTERN_FILE_EXTENSIONS; //HERE
     linked_file = process.argv[3].slice(0,process.argv[3].search(/\./))+tok.OUTPUT_FILE_EXTENSIONS; //HERE
 }
 
@@ -29,7 +27,10 @@ let t:any = [];
 let filein:any;
 if(procmode == "-c") {
     filein = fs.readFileSync(inputfile,'utf8');
-    t = filein.split(/\s+/);
+    //t = filein.split(/\s+/);
+    //t = filein.match(/\w+|"[^"]+"/g)
+    //t = filein.match(/\w+|"[^"]+"|\([^)]*\)|\[[^\]]*\]|(:)|(=)|(\$)|(\+)/g)
+    t = filein.match(/[A-Za-z0-9_$+.]+|"[^"]+"|\([^)]*\)|\[[^\]]*\]|(:)|(=)/g)
     //t = filein.split(/"[^"]+"|([^"]+)/g)
     //t = filein.split(/([a-z][A-Z])(?=(?:[^'"]|["'][^'"]*["'])*$)/g)
 
@@ -62,38 +63,6 @@ export function asmCompileFunction() {
         /** Begin program */
         if (t[i] == tok.start) {
             fs.writeFileSync(asm,"/* INICIO */\n")
-                /*if(os.windows) {
-                    for(var i=0; i<os.libs.length; i++) {
-                        fs.appendFileSync(asm,fs.readFileSync(os.libs_path_win32+os.libs[i]))
-                    }
-                } else if(os.darwin) {
-                    for(var i=0; i<os.libs.length; i++) {
-                        fs.appendFileSync(asm,fs.readFileSync(os.libs_path_darwin+os.libs[i]))
-                    }
-                } else if(os.linux) {
-                    for(var i=0; i<os.libs.length; i++) {
-                        fs.appendFileSync(asm,fs.readFileSync(os.libs_path_linux+os.libs[i]))
-                    }
-                } else if(os.freebsd) {
-                    for(var i=0; i<os.libs.length; i++) {
-                        fs.appendFileSync(asm,fs.readFileSync(os.libs_path_freebsd+os.libs[i]))
-                    }
-                } else if(os.openbsd) {
-                    for(var i=0; i<os.libs.length; i++) {
-                        fs.appendFileSync(asm,fs.readFileSync(os.libs_path_openbsd+os.libs[i]))
-                    }
-                } else if(os.solaris) {
-                    for(var i=0; i<os.libs.length; i++) {
-                        fs.appendFileSync(asm,fs.readFileSync(os.libs_path_solaris+os.libs[i]))
-                    }
-                } else {
-                    for(var i=0; i<os.libs.length; i++) {
-                        fs.appendFileSync(asm,fs.readFileSync(os.libs_path_other+os.libs[i]))
-                    }
-                }*/
-            //}      
-            //let extern = fs.readFileSync(process.argv[3].slice(0,process.argv[3].search(/\./))+tok.GLOBAL_VAR_EXTENSIONS)
-            //fs.writeFileSync(asm,extern)
         }
         if (t[i] == tok.end) {
             fs.appendFileSync(asm,"main();\n/* FIM */")
@@ -126,16 +95,12 @@ export function asmCompileFunction() {
             }
 
         }
-        if (t[i] == tok.extern_import) {
-            let extern = fs.readFileSync(t[i+1]+tok.EXTERN_FILE_EXTENSIONS)
-            fs.appendFileSync(asm,extern+"\n")
-        }
         if (t[i] == tok.require_import) {
-            let name = t[i+3]
             let path = t[i+1]
+            let name = t[i+3]
 
             if(t[i+2] != tok.as_import) {
-                throw new Error(`Use: import ${path} ${tok.as_import} ${name}`);
+                console.log(`Use: (import ${path}) to import package ${name}`);
             } else {
                 fs.appendFileSync(asm,`import * as ${name} from ${path};\n`)
             }
@@ -146,19 +111,20 @@ export function asmCompileFunction() {
         if (t[i] == tok.assign_new) {
             let name = t[i+1]
             let val = t[i+3]
-            if (t[i+2] != tok.assign) {
-                throw new Error(`Use ${tok.assign} to variable assignment`);
-            } else {
-                fs.appendFileSync(asm,`${name} = ${val};\n`)
-            }
+            fs.appendFileSync(asm,`${name} = ${val};\n`)
         }
         if (t[i] == tok.variable) {
-            let name = t[i+1].slice(0,t[i+1].search(/:/))
-            let tof = t[i+1].slice(t[i+1].search(/:/)+1,t[i+1].length)
-            let val = t[i+3]
+            let name = t[i+1]
+            let tof = t[i+3]
+            let val = t[i+5]
+            let isArray = t[i+6]
+            let index = t[i+7]
+            val = val.replace(/\.\./,"+") // HERE
 
-            if (t[i+2] != tok.assign) {
-                throw new Error(`Use ${tok.assign} to variable assignment`);
+
+            if(t[i+4] != tok.assign) {
+                console.log(`\n\nERROR 1000: Use (${tok.assign}) to do variable (${name}) assignment\n\n`);
+                
             } else {
                 tof = tof.replace(tok.datatypes[0],tok.datatypes_target[0])
                 tof = tof.replace(tok.datatypes[1],tok.datatypes_target[1])
@@ -168,23 +134,28 @@ export function asmCompileFunction() {
 
                 let isExported
                 if (export_locked) {
-                    isExported = "export"
+                    isExported = "export "
                 } else {
                     isExported = ""
                 }
 
-                val = val.replace(/\.\./,"+") // HERE
-                fs.appendFileSync(asm,`${isExported} let ${name}:${tof} = ${val};\n`)
+    
+                if(isArray == tok.array_position_index) {
+                    fs.appendFileSync(asm,`${isExported}let ${name}:${tof} = ${val}[${index}];\n`)
+                } else {
+                    fs.appendFileSync(asm,`${isExported}let ${name}:${tof} = ${val};\n`)
+                }
             }
+
         }
 
         if(t[i] == tok.function_token) {
-            let name = t[i+1].slice(0,t[i+1].search(/\(/))
-            let params = t[i+1].slice(t[i+1].search(/\(/),t[i+1].length)
-            let tof = t[i+3]
+            let name = t[i+1]
+            let params = t[i+2]
+            let tof = t[i+4]
 
-            if(t[i+2] != tok.function_delimiter) {
-                throw new Error(`Use ${tok.function_delimiter} to split function name and function type.`);
+            if(t[i+3] != tok.function_delimiter) {
+                console.log(`\n\nERROR 1001: Use (${tok.function_delimiter}) to split function ${name} and function type.\n\n`);
             } else {
                 params = params.replace(tok.datatypes[0],tok.datatypes_target[0])
                 params = params.replace(tok.datatypes[1],tok.datatypes_target[1])
@@ -214,17 +185,18 @@ export function asmCompileFunction() {
         }
 
         if(t[i] == tok.function_call) {
-            let name = t[i+1].slice(0,t[i+1].search(/\(/))
-            let params = t[i+1].slice(t[i+1].search(/\(/),t[i+1].length)
-            let tof = t[i+3]
+            let name = t[i+1]
+            let params = t[i+2]
+            let tof = t[i+4]
+            let return_name = t[i+5]
 
-            if(t[i+2] != tok.function_call_symbol) {
-                throw new Error(`Use ${tok.function_delimiter} to get function return.`);
+            if(t[i+3] != tok.function_call_symbol) {
+                console.log(`\n\nERROR 1002: Use (${tok.function_delimiter}) to get function ${name} return.\n\n`);
             } else { 
                 if(tof == tok.datatypes[4]) {
                     fs.appendFileSync(asm,`${name}${params}\n`)
                 } else {
-                    fs.appendFileSync(asm,`let ${tof} = ${name}${params}\n`)
+                    fs.appendFileSync(asm,`let ${return_name}:${tof} = ${name}${params}\n`)
                 }
                 
             }
@@ -232,13 +204,28 @@ export function asmCompileFunction() {
 
         if (t[i] == tok.std_out) {
             let val = t[i+1]
-            val = val.replace(/\.\./,"+") // HERE
-            fs.appendFileSync(asm,`process.stdout(${val});\n`)
+
+            let isArray = t[i+2]
+            let index = t[i+3]
+
+            if(isArray == tok.array_position_index) {
+                fs.appendFileSync(asm,`process.stdout(${val}[${index}]);\n`)
+            } else {
+                fs.appendFileSync(asm,`process.stdout(${val});\n`)
+            }
+            
         }
         if (t[i] == tok.std_outln) {
             let val = t[i+1]
-            val = val.replace(/\.\./,"+") // HERE
-            fs.appendFileSync(asm,`console.log(${val});\n`)
+
+            let isArray = t[i+2]
+            let index = t[i+3]
+
+            if(isArray == tok.array_position_index) {
+                fs.appendFileSync(asm,`console.log(${val}[${index}]);\n`)
+            } else {
+                fs.appendFileSync(asm,`console.log(${val});\n`)
+            }
         }
 
         if (t[i] == tok.if_block) {
@@ -273,11 +260,25 @@ export function asmCompileFunction() {
             let max = t[i+3].slice(t[i+3].search(/\./)+2,t[i+3].length)
 
             if(t[i+2] != tok.in_tok) {
-                throw new Error(`Use: for ${iterator} ${tok.in_tok} ${min}..${max} do`);
+                console.log(`\n\nERROR 1003: Use (for ${iterator} ${tok.in_tok} ${min}..${max} do)\n\n`);
             } else {
                 fs.appendFileSync(asm,`for(var ${iterator}=${min};${iterator}<${max};${iterator}++)`)
             }
             
+        }
+
+        if(t[i] == tok.array) {
+            let name = t[i+1]
+            let tof = t[i+3]
+            let val = t[i+5].slice(1,-1)
+
+            tof = tof.replace(tok.datatypes[0],tok.datatypes_target[0])
+            tof = tof.replace(tok.datatypes[1],tok.datatypes_target[1])
+            tof = tof.replace(tok.datatypes[2],tok.datatypes_target[2])
+            tof = tof.replace(tok.datatypes[3],tok.datatypes_target[3])
+            tof = tof.replace(tok.datatypes[4],tok.datatypes_target[4])
+
+            fs.appendFileSync(asm,`let ${name}:${tof}[] = [${val}]\n`)
         }
 
         if(t[i] == tok.function_then) {
@@ -289,16 +290,11 @@ export function asmCompileFunction() {
     }
 }
 function deleteObjectCache() {
-    let extern_cache = process.argv[3].slice(0,process.argv[3].search(/\./))+tok.EXTERN_FILE_EXTENSIONS;
-    fs.unlinkSync(extern_cache)
-
     let k_cache = process.argv[3].slice(0,process.argv[3].search(/\./))+tok.OBJECT_FILE;
     fs.unlinkSync(k_cache)
 }
 function asmLinkFunction() { //HERE
     let module_file = fs.readFileSync(asm)
-    let segment_file = fs.readFileSync(segment)
-    //fs.writeFileSync(linked_file,segment_file)
     fs.appendFileSync(linked_file,module_file)
     deleteObjectCache()
 }
@@ -323,9 +319,6 @@ function TypeScriptBuildFunction() {
 
 
 if(procmode == "-c") {
-    let infile = inputfile.slice(0,inputfile.indexOf("."))+tok.GLOBAL_VAR_EXTENSIONS
-    let out_filef = inputfile.slice(0,inputfile.indexOf("."))+tok.EXTERN_FILE_EXTENSIONS
-    ext.load_global(infile,out_filef);
     asmCompileFunction();
     asmLinkFunction();
     TypeScriptBuildFunction();

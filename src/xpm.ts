@@ -6,7 +6,7 @@ import * as https from 'https'
 
 import * as os from './os'
 
-const version = "1.0"
+const version = "1.2"
 const URL = process.argv[3];
 let downloadedPath;
 
